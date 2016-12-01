@@ -70,9 +70,9 @@ picker.directive 'dateRangePicker', ($compile, $timeout, $parse, dateRangePicker
         then moment(date).format(opts.locale.format)
         else date.format(opts.locale.format)
 
-      if opts.singleDatePicker and objValue
-        f(objValue)
-      else if objValue.startDate
+      if opts.singleDatePicker and objValue and objValue.startDate
+        f(objValue.startDate)
+      else if !opts.singleDatePicker && objValue and objValue.startDate
         [f(objValue.startDate), f(objValue.endDate)].join(opts.locale.separator)
       else ''
 
@@ -114,7 +114,16 @@ picker.directive 'dateRangePicker', ($compile, $timeout, $parse, dateRangePicker
       # update our $viewValue, which triggers the $parsers
       el.daterangepicker angular.extend(opts, {autoUpdateInput: false}), (start, end) ->
         $scope.$apply () ->
-          $scope.model = if opts.singleDatePicker then start else {startDate: start, endDate: end}
+          $scope.model = if opts.singleDatePicker then {startDate : start} else {startDate: start, endDate: end}
+          formatters = modelCtrl.$formatters
+          idx = formatters.length
+          viewValue = $scope.model
+          while idx--
+            viewValue = formatters[idx](viewValue)
+          modelCtrl.$viewValue = modelCtrl.$$lastCommittedViewValue = viewValue
+          modelCtrl.$modelValue = $scope.model
+          modelCtrl.$render()
+          modelCtrl.$$writeModelToScope()
 
       # Needs to be after daterangerpicker has been created, otherwise
       # watchers that reinit will be attached to old daterangepicker instance.
@@ -124,18 +133,24 @@ picker.directive 'dateRangePicker', ($compile, $timeout, $parse, dateRangePicker
       # Revised
 
       for eventType of opts.eventHandlers
-        el.on eventType, (e) ->
+        el.on eventType, (e, picker) ->
           eventName = e.type + '.' + e.namespace
-          $scope.$evalAsync(opts.eventHandlers[eventName])
+          $scope.$evalAsync () ->
+            $parse(opts.eventHandlers[eventName])(e, picker)
 
     _init()
 
     # Watchers enable resetting of start and end dates
     # Update the date picker, and set a new viewValue of the model
-    $scope.$watch 'model.startDate', (n) ->
-      _setStartDate(n)
-    $scope.$watch 'model.endDate', (n) ->
-      _setEndDate(n)
+    if(opts.singleDatePicker)
+      $scope.$watch 'model', (n) ->
+        if(n)
+          _setStartDate( if n.startDate then n.startDate else n)
+    else
+      $scope.$watch 'model.startDate', (n) ->
+        _setStartDate(n)
+      $scope.$watch 'model.endDate', (n) ->
+        _setEndDate(n)
 
     # Add validation/watchers for our min/max fields
     _initBoundaryField = (field, validator, modelField, optName) ->
