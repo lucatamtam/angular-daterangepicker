@@ -114,3 +114,13 @@ just before the commit.
 ## Contributors
 See [CONTRIBUTORS.md](https://github.com/fragaria/angular-daterangepicker/blob/master/CONTRIBUTORS.md) for all the great folks who contributed to this repo!
 Thank you, guys!
+
+## Compile
+run the following commands:
+
+```
+coffee -c Gruntfile.coffee
+
+grunt
+```
+
